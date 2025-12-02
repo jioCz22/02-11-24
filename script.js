@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { once: true });
 
     // ----------------------
-    // TRES JS INICIALIZACIÓN (Se mantiene igual)
+    // TRES JS INICIALIZACIÓN
     // ----------------------
     const canvas = document.getElementById("scene");
     if (!canvas) return;
@@ -36,55 +36,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // ------------------------------------
-    // FUNCIÓN DE CORAZÓN (Contorno y Volumen)
+    // FUNCIÓN DE CORAZÓN (SOLO CONTORNO)
     // ------------------------------------
-    const HEART_SCALE = 2.8; // <<< AUMENTAMOS LA ESCALA PARA HACERLO MÁS GRUESO
-    const CONTOUR_DEPTH_FACTOR = 4; // <<< AUMENTAMOS ESTE FACTOR PARA DARLE MÁS PROFUNDIDAD AL CONTORNO
-    const TOTAL_CONTOUR_POINTS = 3000;
-    const TOTAL_VOLUME_POINTS = 4000;
-    const TOTAL_POINTS = TOTAL_CONTOUR_POINTS + TOTAL_VOLUME_POINTS;
+    const HEART_SCALE = 2.8; 
+    const CONTOUR_DEPTH_FACTOR = 4; 
+    // SOLO MANTENEMOS LOS PUNTOS DEL CONTORNO
+    const TOTAL_POINTS = 7000; 
 
     const maxDelay = 3;
-    const ANIMATION_DURATION = 4.0;
-    const FILL_START_DELAY = ANIMATION_DURATION + 0.5;
-    const FILL_DURATION = 3.0; 
+    const ANIMATION_DURATION = 4.0; 
+    // Las variables de relleno (FILL_*) ya no son necesarias.
     const randomRange = 60;
     
-    // Ecuación de Contorno (Cardiode 3D - MÁS GRUESO)
+    // Ecuación de Contorno (Cardiode 3D)
     function createHeartContourPoint(i, total) {
         const t = (i / total) * Math.PI * 2;
         let x = 16 * Math.pow(Math.sin(t), 3);
         let y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
-        // Usamos Math.random() para dar más volumen al eje Z
         let z = (Math.random() * 2 - 1) * CONTOUR_DEPTH_FACTOR; 
-
         return new THREE.Vector3(x * HEART_SCALE, y * HEART_SCALE, z);
     }
     
-    // Función para Rellenar el Volumen (Mantenemos la lógica de dentro)
-    function getHeartVolumeTarget() {
-        const x = (Math.random() * 2 - 1) * 45; // Aumentar rango de búsqueda
-        const y = (Math.random() * 2 - 1) * 45;
-        const z = (Math.random() * 2 - 1) * 6; 
-        const normalizedX = x / 40; 
-        const normalizedY = y / 40; 
-        
-        const check = Math.pow(normalizedX * normalizedX + normalizedY * normalizedY - 1.2, 3) - normalizedX * normalizedX * normalizedY * normalizedY * normalizedY;
-        
-        if (check < 0) {
-            return new THREE.Vector3(x, y + 15, z); // Ajuste de centrado
-        }
-        return null;
-    }
+    // La función getHeartVolumeTarget ya no se usa.
 
     // ------------------------------------
-    // PARTICULAS Y BUFFERS (Se mantiene la lógica de relleno por hilos)
+    // PARTICULAS Y BUFFERS 
     // ------------------------------------
+    // Todos los arrays usan TOTAL_POINTS
     const initial = new Float32Array(TOTAL_POINTS * 3);
     const target = new Float32Array(TOTAL_POINTS * 3);
     const colors = new Float32Array(TOTAL_POINTS * 3);
     const sizes = new Float32Array(TOTAL_POINTS);
     const delays = new Float32Array(TOTAL_POINTS);
+    // isContour ya no es necesario, pero lo quitamos del BufferAttribute.
 
     const neonColors = [
         new THREE.Color(0xff4fa8),
@@ -95,61 +79,31 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
 
-    // --- 1. GENERAR PUNTOS DEL CONTORNO ---
-    let heartContourPoints = [];
-
-    for (let i = 0; i < TOTAL_CONTOUR_POINTS; i++) {
-        const p = createHeartContourPoint(i, TOTAL_CONTOUR_POINTS);
-        heartContourPoints.push({ index: i, x: p.x, y: p.y, z: p.z });
+    // --- GENERAR PUNTOS DEL CONTORNO (Ahora es el único bucle) ---
+    for (let i = 0; i < TOTAL_POINTS; i++) {
+        const p = createHeartContourPoint(i, TOTAL_POINTS);
         
-        delays[i] = (i / TOTAL_CONTOUR_POINTS) * maxDelay; 
-        target[i * 3]     = p.x;
+        // Retraso individual para la animación de dispersión
+        delays[i] = (i / TOTAL_POINTS) * maxDelay; 
+        
+        // Posición final (forma de corazón)
+        target[i * 3]     = p.x;
         target[i * 3 + 1] = p.y;
         target[i * 3 + 2] = p.z;
-        initial[i * 3]     = (Math.random() - 0.5) * randomRange;
+        
+        // Posición inicial (dispersión aleatoria)
+        initial[i * 3]     = (Math.random() - 0.5) * randomRange;
         initial[i * 3 + 1] = (Math.random() - 0.5) * randomRange;
         initial[i * 3 + 2] = (Math.random() - 0.5) * randomRange;
+        
+        // Color
         const c = neonColors[Math.floor(Math.random() * neonColors.length)];
-        colors[i * 3]     = c.r;
+        colors[i * 3]     = c.r;
         colors[i * 3 + 1] = c.g;
         colors[i * 3 + 2] = c.b;
-        sizes[i] = Math.random() * 1.5 + 0.5;
-    }
-
-
-    // --- 2. GENERAR PUNTOS DE RELLENO (Estilo HILOS/VIAJE) ---
-    let volumeCount = 0;
-    let attempts = 0;
-    
-    while(volumeCount < TOTAL_VOLUME_POINTS && attempts < TOTAL_VOLUME_POINTS * 10) {
-        attempts++;
-        const targetPos = getHeartVolumeTarget();
         
-        if (targetPos) {
-            const i = TOTAL_CONTOUR_POINTS + volumeCount; 
-            
-            const contourIndex = Math.floor(Math.random() * TOTAL_CONTOUR_POINTS);
-            let initPos = createHeartContourPoint(contourIndex, TOTAL_CONTOUR_POINTS); 
-
-            delays[i] = FILL_START_DELAY + (volumeCount / TOTAL_VOLUME_POINTS) * FILL_DURATION;
-
-            target[i * 3]     = targetPos.x;
-            target[i * 3 + 1] = targetPos.y;
-            target[i * 3 + 2] = targetPos.z;
-            
-            initial[i * 3]     = initPos.x;
-            initial[i * 3 + 1] = initPos.y;
-            initial[i * 3 + 2] = initPos.z;
-            
-            const c = neonColors[Math.floor(Math.random() * 3)];
-            colors[i * 3]     = c.r * 0.8;
-            colors[i * 3 + 1] = c.g * 0.8;
-            colors[i * 3 + 2] = c.b * 0.8;
-
-            sizes[i] = Math.random() * 0.8 + 0.2; 
-            
-            volumeCount++;
-        }
+        // Tamaño
+        sizes[i] = Math.random() * 1.5 + 0.5;
     }
 
 
@@ -161,36 +115,56 @@ document.addEventListener('DOMContentLoaded', () => {
     geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
     geo.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
     geo.setAttribute("delay", new THREE.BufferAttribute(delays, 1));
-
+    // isContour se ha quitado
+    
 
     // ----------------------
-    // MATERIAL / SHADER (Se mantiene igual)
+    // MATERIAL / SHADER (Simplificado)
     // ----------------------
     const material = new THREE.ShaderMaterial({
         uniforms: {
             neonColors: { value: neonColors },
             numNeonColors: { value: neonColors.length },
             colorChangeSpeed: { value: 0.5 },
-            pointTexture: { value: new THREE.TextureLoader().load("circle.png") },
+            // Asegúrate de tener la textura 'circle.png' en la misma carpeta
+            pointTexture: { value: new THREE.TextureLoader().load("circle.png") }, 
             time: { value: 0.0 },
-            animationDuration: { value: FILL_DURATION }, 
+            animationDuration: { value: ANIMATION_DURATION },
             brightnessIntensity: { value: 5.5 }
         },
         vertexShader: `
-            attribute float size; attribute vec3 initialPosition; attribute vec3 targetPosition; attribute float delay;
-            uniform float time; uniform float animationDuration; uniform vec3 neonColors[5]; uniform float numNeonColors; uniform float colorChangeSpeed;
+            // Attributes (Solo los necesarios)
+            attribute float size; 
+            attribute vec3 initialPosition; 
+            attribute vec3 targetPosition; 
+            attribute float delay;
+
+            // Uniforms
+            uniform float time; 
+            uniform float animationDuration; 
+            uniform vec3 neonColors[5]; 
+            uniform float numNeonColors; 
+            uniform float colorChangeSpeed;
+            
+            // Varyings
             varying vec3 vColor;
+            
             void main() {
                 float t_real = time - delay;
+                
+                // Calculamos el progreso de la animación de dispersión a corazón
                 float t = clamp(t_real / animationDuration, 0.0, 1.0);
                 
+                // Interpolación de posición (de initialPosition a targetPosition)
                 vec3 pos;
                 if(time < delay){
                     pos = initialPosition;
                 } else {
-                    pos = mix(initialPosition, targetPosition, t);
+                    // Usamos una interpolación suave para el movimiento
+                    pos = mix(initialPosition, targetPosition, smoothstep(0.0, 1.0, t));
                 }
 
+                // Animación de color
                 float ct = time * colorChangeSpeed + delay * 0.1;
                 float ci = mod(ct, numNeonColors);
                 int i1 = int(floor(ci));
@@ -199,20 +173,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 vColor = mix(neonColors[i1], neonColors[i2], mf);
 
+                // Cálculo de punto final (proyección)
                 vec4 mv = modelViewMatrix * vec4(pos, 1.0);
                 gl_PointSize = size * (500.0 / -mv.z);
                 gl_Position = projectionMatrix * mv;
             }
         `,
         fragmentShader: `
-            uniform sampler2D pointTexture; uniform float brightnessIntensity; varying vec3 vColor;
+            // Uniforms
+            uniform sampler2D pointTexture; 
+            uniform float brightnessIntensity; 
+            
+            // Varyings
+            varying vec3 vColor;
+
             void main() {
+                // Dibujar el círculo de la partícula
                 float r = distance(gl_PointCoord, vec2(0.5));
                 if (r > 0.5) discard;
+                
+                // Aplicar alpha suave para bordes (feathering)
                 float alpha = smoothstep(0.5, 0.45, r);
                 vec4 c = vec4(vColor, alpha) * texture2D(pointTexture, gl_PointCoord);
+                
+                // Efecto Bloom/Brillo
                 float grey = dot(c.rgb, vec3(0.299, 0.587, 0.114));
                 c.rgb *= (brightnessIntensity + grey * 1.5);
+                
                 gl_FragColor = c;
             }
         `,
@@ -225,9 +212,6 @@ document.addEventListener('DOMContentLoaded', () => {
     scene.add(points);
     points.rotation.set(0, 0, 0); 
 
-
-   
-
     // ----------------------
     // LOOP DE ANIMACIÓN
     // ----------------------
@@ -239,20 +223,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const t = clock.getElapsedTime();
         material.uniforms.time.value = t;
 
-        // ❤️ LATIDO DEL CORAZÓN
+        // ❤️ LATIDO DEL CORAZÓN (Se mantiene, ahora solo afecta el contorno)
         const s = 1 + Math.sin(t * 4) * 0.12;
         points.scale.set(s, s, s);
 
-        // 📝 ANIMACIÓN DEL TEXTO (MOVIMIENTO Y LATIDO)
-        if (animate.text && animate.text.visible) {
-            // MOVIMIENTO VERTICAL (Arriba y Abajo)
-            const yOffset = Math.sin(t * 2) * 1.5; // Frecuencia 2, Amplitud 1.5
-            animate.text.position.y = originalTextYPosition + yOffset;
-
-            // LATIDO (Escala)
-            const ss = 1 + Math.sin(t * 3) * 0.08;
-            animate.text.scale.set(ss, ss, ss);
-        }
+        // Ya no es necesario el bloque de código de texto 3D
 
         renderer.render(scene, camera);
     }
