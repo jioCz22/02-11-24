@@ -17,7 +17,6 @@
 /* ==================================== */
 body {
     margin: 0;
-    /* Usamos min-height: 100vh para asegurar que el contenido ocupe toda la pantalla */
     min-height: 100vh;
     background: radial-gradient(circle at 50% 30%, var(--bg-deep) 0%, var(--bg-dark) 80%);
     font-family: "Poppins", sans-serif;
@@ -25,8 +24,8 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 24px 10px; /* Padding reducido en móviles */
-    overflow-x: hidden; /* Evitar scroll horizontal */
+    padding: 24px 10px; 
+    overflow-x: hidden; 
 }
 
 /* ==================================== */
@@ -49,7 +48,6 @@ body {
 /* ✍️ TEXTOS NEÓN ✍️ */
 /* ==================================== */
 .title {
-    /* clamp(Mínimo, Preferido, Máximo) - Asegura que el texto escala */
     font-size: clamp(30px, 6vw, 55px); 
     font-weight: 700;
     color: var(--pink-soft);
@@ -76,7 +74,6 @@ body {
     position: relative;
     width: 100%;
     max-width: 960px;
-    /* La altura se define por el ASPECT RATIO para ser responsiva */
     height: 480px; 
     margin: 30px auto;
     border-radius: 16px; 
@@ -133,38 +130,31 @@ body {
 /* 📱 MEDIA QUERIES (Responsividad) 📱 */
 /* ==================================== */
 
-/* Para pantallas medianas (tabletas y algunos portátiles) */
 @media (max-width: 992px) {
     .frame {
-        /* Reducir la relación de aspecto del marco */
         height: 400px;
         margin: 20px auto;
     }
 }
 
-/* Para dispositivos móviles (la prioridad) */
 @media (max-width: 600px) {
     body {
-        /* Aseguramos que no haya exceso de margen en pantallas muy pequeñas */
         padding: 10px 5px; 
     }
     .frame {
-        /* Reducir más la altura para que el contenido quepa sin scroll */
         height: 350px;
         padding: 8px;
         border-radius: 10px;
         margin: 15px auto;
     }
     .title {
-        /* Usamos el valor mínimo del clamp: 30px */
         font-size: 30px; 
     }
     .floating-text {
-        font-size: 13px; /* Frases más pequeñas en móviles */
+        font-size: 13px; 
     }
-    .f5 { top: 45%; font-size: 16px; } /* Mantenemos la central más visible */
+    .f5 { top: 45%; font-size: 16px; } 
     
-    /* Ocultamos algunas frases flotantes para evitar el desorden */
     .f1, .f2 {
         opacity: 0;
         animation: none;
